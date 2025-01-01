@@ -12,6 +12,7 @@ export default function AppNavbar() {
   const { user, setUser } = useContext(UserContext);
 
   // console.log(user);
+  
 
   return (
     <Navbar expand="lg" className="bg-light">

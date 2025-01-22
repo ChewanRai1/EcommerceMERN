@@ -1,0 +1,5 @@
+node_modules/
+
+# Add these lines to .gitignore
+.env
+.env.sample

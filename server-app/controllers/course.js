@@ -54,15 +54,23 @@ module.exports.addCourse = (req, res) => {
     1. Retrieve all courses using the mongoose "find" method
     2. Use the "then" method to send a response back to the client appliction based on the result of the "find" method
 */
+// module.exports.getAllCourses = (req, res) => {
+//     return Course.find({})
+//     .then(result => {
+//         if(result.length > 0){
+//             return res.status(200).send(result);
+//         }
+//         else{
+//             return res.status(404).send({ message: 'No courses found' });
+//         }
+//     })
+//     .catch(error => errorHandler(error, req, res));
+// };
 module.exports.getAllCourses = (req, res) => {
     return Course.find({})
     .then(result => {
-        if(result.length > 0){
-            return res.status(200).send(result);
-        }
-        else{
-            return res.status(404).send({ message: 'No courses found' });
-        }
+        // Always return an array, even if empty
+        return res.status(200).send(result);
     })
     .catch(error => errorHandler(error, req, res));
 };

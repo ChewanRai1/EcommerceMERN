@@ -45,7 +45,7 @@ module.exports.registerUser = (req, res) => {
         return res.status(400).send({ message: 'Invalid email format' });
     }
     // Checks if the mobile number has the correct number of characters
-    else if (req.body.mobileNo.length !== 11){
+    else if (req.body.mobileNo.length !== 10){
         // if the mobile number is not in the correct number of characters, send a message 'Mobile number is invalid'.
         return res.status(400).send({ message: 'Mobile number is invalid' });
     }

@@ -92,7 +92,7 @@ export default function Register(){
 
         	}
         	else if(data.message === "Mobile number is invalid"){
-	    		notyf.error("11 Digit Number is Required");
+	    		notyf.error("10 Digit Number is Required");
 	    	}
 	    	else if (data.message === "Password must be atleast 8 characters long") {
 	    	    notyf.error("Password must be at least 8 characters");

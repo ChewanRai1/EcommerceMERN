@@ -5,7 +5,7 @@ import FeaturedCourses from "../components/FeaturedCourses";
 export default function Home() {
 
     const data = {
-        title: "Zuitt Coding Bootcamp",
+        title: "Course Booking",
         content: "Opportunities for everyone, everywhere",
         destination: "/courses",
         buttonLabel: "Enroll now!"

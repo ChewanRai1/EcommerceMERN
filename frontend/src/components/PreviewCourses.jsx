@@ -22,6 +22,7 @@ export default function PreviewCourses(props){
 				</Card.Body>
 				<Card.Footer>
 					<Link className="btn btn-primary" to={`/courses/${_id}`}>Details</Link>
+
 				</Card.Footer>
 			</Card>
 		</Col>

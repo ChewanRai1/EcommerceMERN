@@ -18,6 +18,8 @@ import AddCourse from "./components/AddCourse";
 import { BrowserRouter as Router } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import { UserProvider } from "./context/UserContext";
+import Footer from "./components/Footer";
+import BannerSlider from "./components/Banner";
 
 function App() {
   const [user, setUser] = useState({
@@ -73,20 +75,20 @@ function App() {
   // }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
-        retrieveUserDetails(token);
+      retrieveUserDetails(token);
     } else {
-        setUser({
-            id: null,
-            email: null,
-            firstName: null,
-            lastName: null,
-            mobileNo: null,
-            isAdmin: null
-        });
+      setUser({
+        id: null,
+        email: null,
+        firstName: null,
+        lastName: null,
+        mobileNo: null,
+        isAdmin: null,
+      });
     }
-}, []);
+  }, []);
   /*
     <Router> serves as a container for the entire routing logic
     <Routes> is a container for organizing multiple <Route> components
@@ -111,12 +113,11 @@ function App() {
               <Route path="*" element={<Error />} />
             </Routes>
           </Container>
+          <Footer />
         </Router>
       </UserProvider>
     </>
-  ); // Break: Please be back by
-  // 6:01 PM (NPT)
-  // 9:16 PM (JST)
+  ); 
 }
 
 export default App;

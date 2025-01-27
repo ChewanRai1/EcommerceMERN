@@ -117,7 +117,7 @@ function App() {
         </Router>
       </UserProvider>
     </>
-  ); 
+  );
 }
 
 export default App;

@@ -17,20 +17,35 @@ const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
     Steps: 
     1. Use mongoose "find" method to find duplicate emails
     2. Use the "then" method to send a response back to the client appliction based on the result of the "find" method
-*/
-module.exports.checkEmailExists = (req, res) => {
-  if (req.body.email.includes("@")) {
-    return User.find({ email: req.body.email })
-      .then((result) => {
-        if (result.length > 0) {
-          return res.status(409).send({ message: "Duplicate email found" });
-        } else {
-          return res.status(404).send({ message: "No duplicate email found" });
-        }
-      })
-      .catch((error) => errorHandler(error, req, res));
-  } else {
-    res.status(400).send({ message: "Invalid email format" });
+// */
+// module.exports.checkEmailExists = (req, res) => {
+//   if (req.body.email.includes("@")) {
+//     return User.find({ email: req.body.email })
+//       .then((result) => {
+//         if (result.length > 0) {
+//           return res.status(409).send({ message: "Duplicate email found" });
+//         } else {
+//           return res.status(404).send({ message: "No duplicate email found" });
+//         }
+//       })
+//       .catch((error) => errorHandler(error, req, res));
+//   } else {
+//     res.status(400).send({ message: "Invalid email format" });
+//   }
+// };
+
+// Check encrypted email
+module.exports.checkEmailExists = async (req, res) => {
+  try {
+    const encryptedEmail = encrypt(req.body.email);
+    const user = await User.findOne({ email: encryptedEmail });
+
+    if (user) {
+      return res.status(409).send({ message: "Duplicate email found" });
+    }
+    return res.status(404).send({ message: "No duplicate email found" });
+  } catch (error) {
+    errorHandler(error, req, res);
   }
 };
 
@@ -200,19 +215,44 @@ module.exports.loginUser = (req, res) => {
     2. Change the password to an empty string to hide the password
     3. Return the updated user record
 */
-module.exports.getProfile = (req, res) => {
-  return User.findById(req.user.id)
-    .then((user) => {
-      if (!user) {
-        // if the user has invalid token, send a message 'invalid signature'.
-        return res.status(404).send({ message: "invalid signature" });
-      } else {
-        // if the user is found, return the user.
-        user.password = "";
-        return res.status(200).send(user);
-      }
-    })
-    .catch((error) => errorHandler(error, req, res));
+// module.exports.getProfile = (req, res) => {
+//   return User.findById(req.user.id)
+//     .then((user) => {
+//       if (!user) {
+//         // if the user has invalid token, send a message 'invalid signature'.
+//         return res.status(404).send({ message: "invalid signature" });
+//       } else {
+//         // if the user is found, return the user.
+//         user.password = "";
+//         return res.status(200).send(user);
+//       }
+//     })
+//     .catch((error) => errorHandler(error, req, res));
+// };
+
+module.exports.getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select(
+      "-password -previousPasswords"
+    );
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "Invalid token or user not found" });
+    }
+
+    // ✅ Manually decrypt email and mobile number before sending response
+    const decryptedUser = {
+      ...user._doc, // Convert Mongoose object to plain JSON
+      email: decrypt(user.email),
+      mobileNo: decrypt(user.mobileNo),
+    };
+
+    res.status(200).json(decryptedUser);
+  } catch (error) {
+    console.error("Error retrieving profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 module.exports.enroll = (req, res) => {

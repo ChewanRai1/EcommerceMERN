@@ -13,39 +13,38 @@ module.exports.createAccessToken = (user) => {
     isAdmin: user.isAdmin,
   };
 
-  return jwt.sign(data, process.env.JWT_SECRET_KEY, {});
+  return jwt.sign(data, process.env.JWT_SECRET_KEY, { expiresIn: "1h" });
 };
 
-//[SECTION] Token Verification
-
+// [MODIFIED] Token Verification with Expiry Handling
 module.exports.verify = (req, res, next) => {
-  console.log(req.headers.authorization);
-
   let token = req.headers.authorization;
 
-  if (typeof token === "undefined") {
-    return res.send({ auth: "Failed. No Token" });
-  } else {
-    console.log(token);
-    token = token.slice(7, token.length);
-    console.log(token);
-
-    jwt.verify(token, process.env.JWT_SECRET_KEY, function (err, decodedToken) {
-      if (err) {
-        return res.status(403).send({
-          auth: "Failed",
-          message: err.message,
-        });
-      } else {
-        console.log("result from verify method:");
-        console.log(decodedToken);
-
-        req.user = decodedToken;
-
-        next();
-      }
-    });
+  if (!token) {
+    return res.status(401).send({ auth: "Failed. No Token" });
   }
+
+  token = token.slice(7, token.length);
+
+  jwt.verify(token, process.env.JWT_SECRET_KEY, function (err, decodedToken) {
+    if (err) {
+      return res.status(403).send({
+        auth: "Failed",
+        message: "Session Expired. Please login again.",
+      });
+    } else {
+      req.user = decodedToken;
+      next();
+    }
+  });
+};
+
+// ✅ [MODIFIED] Secure Logout (Clears Token)
+module.exports.logoutUser = (req, res) => {
+  res.clearCookie("token"); // ✅ Remove JWT on logout
+  req.session.destroy(() => {
+    res.status(200).send({ message: "Logged out successfully" });
+  });
 };
 
 //[SECTION] Verify Admin

@@ -181,170 +181,178 @@
 // 	)
 // }
 
-import { useState, useContext } from 'react';  
-import { Form, Button } from 'react-bootstrap';
-
-import UserContext from '../context/UserContext'; 
-import { Navigate } from 'react-router-dom'; 
-
-import { Notyf } from 'notyf'; // Notification module
-import 'notyf/notyf.min.css'; // Notyf styles
+//2nd
+import { useState, useContext } from "react";
+import { Form, Button, ProgressBar } from "react-bootstrap";
+import UserContext from "../context/UserContext";
+import { Navigate } from "react-router-dom";
+import { Notyf } from "notyf";
+import "notyf/notyf.min.css";
 
 export default function Register() {
-	const notyf = new Notyf(); 
+  const notyf = new Notyf();
+  const { user } = useContext(UserContext);
 
-	const { user } = useContext(UserContext);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [mobileNo, setMobileNo] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [passwordError, setPasswordError] = useState("");
+  const [showPasswordError, setShowPasswordError] = useState(false); // ✅ Controls when to show error
 
-	const [firstName, setFirstName] = useState("");
-	const [lastName, setLastName] = useState("");
-	const [email, setEmail] = useState("");
-	const [mobileNo, setMobileNo] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [passwordError, setPasswordError] = useState("");
-	const [formSubmitted, setFormSubmitted] = useState(false);
+  // Function to check password strength
+  const validatePassword = (password) => {
+    const strength = [
+      /(?=.*[a-z])/, // Lowercase
+      /(?=.*[A-Z])/, // Uppercase
+      /(?=.*\d)/, // Number
+      /(?=.*[\W_])/, // Special character
+      /.{8,}/, // At least 8 characters
+    ];
 
-	// Function to validate password complexity
-	const validatePassword = (password) => {
-		const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-		return passwordRegex.test(password);
-	};
+    let score = strength.reduce(
+      (acc, regex) => (regex.test(password) ? acc + 20 : acc),
+      0
+    );
+    setPasswordStrength(score);
+    return score === 100;
+  };
 
-	const handlePasswordChange = (e) => {
-		setPassword(e.target.value);
-		if (formSubmitted && !validatePassword(e.target.value)) {
-			setPasswordError("Password must be at least 8 characters, including uppercase, lowercase, number, and special character.");
-		} else {
-			setPasswordError("");
-		}
-	};
+  // Handle password input changes
+  const handlePasswordChange = (e) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
 
-	function registerUser(e) {
-		e.preventDefault();
-		setFormSubmitted(true);
+    if (!validatePassword(newPassword)) {
+      setPasswordError(
+        "Password must be at least 8 characters, including uppercase, lowercase, number, and special character."
+      );
+    } else {
+      setPasswordError("");
+    }
+  };
 
-		// Check password validation on submit
-		if (!validatePassword(password)) {
-			setPasswordError("Password must be at least 8 characters, including uppercase, lowercase, number, and special character.");
-			return;
-		}
+  // Show error only after user leaves the password field
+  const handlePasswordBlur = () => {
+    setShowPasswordError(true);
+  };
 
-		// Confirm password validation
-		if (password !== confirmPassword) {
-			notyf.error("Passwords do not match.");
-			return;
-		}
+  // Handle form submission
+  const registerUser = (e) => {
+    e.preventDefault();
 
-		fetch(`${import.meta.env.VITE_API_URL}/users/register`, {
-			method: "POST",
-			headers: { "Content-Type" : "application/json" },
-			body: JSON.stringify({
-				firstName,
-				lastName,
-				email,
-				mobileNo,
-				password
-			})
-		})
-		.then(res => res.json())
-		.then(data => {
-			console.log(data);
+    if (!validatePassword(password)) {
+      setShowPasswordError(true);
+      notyf.error("Password does not meet security requirements.");
+      return;
+    }
 
-			if(data.message === "User registered successfully"){
-				notyf.success("Registration successful");
-				setFirstName("");
-				setLastName("");
-				setEmail("");
-				setMobileNo("");
-				setPassword("");
-				setConfirmPassword("");
-				setFormSubmitted(false);
-			} else if (data.message === "Invalid email format") {
-				notyf.error("Email is invalid");
-			} else if (data.message === "Mobile number is invalid") {
-				notyf.error("10-digit mobile number is required");
-			} else {
-				notyf.error("Something went wrong");
-			}
-		});
-	}
+    if (password !== confirmPassword) {
+      notyf.error("Passwords do not match.");
+      return;
+    }
 
-	return (
-		user.id !== null ? 
-			<Navigate to="/courses" />
-			:
-			<Form onSubmit={registerUser}>
-				<h1 className="my-5 text-center">Register</h1> 
+    // Send registration request
+    fetch(`${import.meta.env.VITE_API_URL}/users/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ firstName, lastName, email, mobileNo, password }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.message === "User registered successfully") {
+          notyf.success("Registration successful");
+          setFirstName("");
+          setLastName("");
+          setEmail("");
+          setMobileNo("");
+          setPassword("");
+          setConfirmPassword("");
+          setShowPasswordError(false);
+        } else {
+          notyf.error(data.message);
+        }
+      });
+  };
 
-				<Form.Group>
-					<Form.Label>First Name:</Form.Label>
-					<Form.Control 
-						type="text" 
-						placeholder="Enter First Name" 
-						required 
-						value={firstName}
-						onChange={(e) => setFirstName(e.target.value)}
-					/>
-				</Form.Group>
+  return user.id !== null ? (
+    <Navigate to="/courses" />
+  ) : (
+    <Form onSubmit={registerUser}>
+      <h1 className="my-5 text-center">Register</h1>
 
-				<Form.Group>
-					<Form.Label>Last Name:</Form.Label>
-					<Form.Control 
-						type="text" 
-						placeholder="Enter Last Name" 
-						required 
-						value={lastName}
-						onChange={(e) => setLastName(e.target.value)}
-					/>
-				</Form.Group>
+      <Form.Group>
+        <Form.Label>First Name:</Form.Label>
+        <Form.Control
+          type="text"
+          required
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+        />
+      </Form.Group>
 
-				<Form.Group>
-					<Form.Label>Email:</Form.Label>
-					<Form.Control 
-						type="email" 
-						placeholder="Enter Email" 
-						required 
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
-					/>
-				</Form.Group>
+      <Form.Group>
+        <Form.Label>Last Name:</Form.Label>
+        <Form.Control
+          type="text"
+          required
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+        />
+      </Form.Group>
 
-				<Form.Group>
-					<Form.Label>Mobile No.:</Form.Label>
-					<Form.Control 
-						type="text" 
-						placeholder="Enter Mobile Number" 
-						required 
-						maxLength="10"
-						value={mobileNo}
-						onChange={(e) => setMobileNo(e.target.value)}
-					/>
-				</Form.Group>
+      <Form.Group>
+        <Form.Label>Email:</Form.Label>
+        <Form.Control
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </Form.Group>
 
-				<Form.Group>
-					<Form.Label>Password:</Form.Label>
-					<Form.Control 
-						type="password" 
-						placeholder="Enter Password" 
-						required 
-						value={password}
-						onChange={handlePasswordChange}
-					/>
-					{passwordError && <Form.Text className="text-danger">{passwordError}</Form.Text>}
-				</Form.Group>
+      <Form.Group>
+        <Form.Label>Mobile No.:</Form.Label>
+        <Form.Control
+          type="text"
+          required
+          maxLength="10"
+          value={mobileNo}
+          onChange={(e) => setMobileNo(e.target.value)}
+        />
+      </Form.Group>
 
-				<Form.Group>
-					<Form.Label>Confirm Password:</Form.Label>
-					<Form.Control 
-						type="password" 
-						placeholder="Confirm Password" 
-						required 
-						value={confirmPassword}
-						onChange={(e) => setConfirmPassword(e.target.value)}
-					/>
-				</Form.Group>
+      <Form.Group>
+        <Form.Label>Password:</Form.Label>
+        <Form.Control
+          type="password"
+          required
+          value={password}
+          onChange={handlePasswordChange}
+          onBlur={handlePasswordBlur} // ✅ Only show error after user leaves the field
+        />
+        <ProgressBar now={passwordStrength} label={`${passwordStrength}%`} />
+        {showPasswordError && passwordError && (
+          <Form.Text className="text-danger">{passwordError}</Form.Text>
+        )}
+      </Form.Group>
 
-				<Button variant="primary" type="submit">Submit</Button>
-			</Form>
-	);
+      <Form.Group>
+        <Form.Label>Confirm Password:</Form.Label>
+        <Form.Control
+          type="password"
+          required
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+      </Form.Group>
+
+      <Button variant="primary" type="submit">
+        Submit
+      </Button>
+    </Form>
+  );
 }

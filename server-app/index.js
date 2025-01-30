@@ -46,7 +46,6 @@
 //   })
 // );
 
-
 // const corsOptions = {
 //   origin: ["http://localhost:5173"],
 //   credentials: true,
@@ -106,15 +105,16 @@
 
 // module.exports = { app, mongoose };
 
-
 // [SECTION] Dependencies and Modules
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const passport = require("passport");
 const session = require("express-session");
+const MongoStore = require("connect-mongo"); //Store session
 const captchaRoute = require("./routes/captchaRoute");
-require("dotenv").config();  // Load environment variables
+
+require("dotenv").config(); // Load environment variables
 
 //[SECTION] Routes
 const userRoutes = require("./routes/user");
@@ -133,13 +133,39 @@ app.use(
     secret: process.env.SESSION_SECRET || "defaultSecretKey",
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_STRING, // Store sessions in MongoDB
+      collectionName: "sessions",
+      ttl: 3600, // Sessions expire in 1 hour
+    }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",  // Set to true in production
-      httpOnly: true,  // Helps prevent XSS attacks
-      maxAge: 1000 * 60 * 15  // Session expiration set to 15 minutes
+      secure: process.env.NODE_ENV === "production", // Set to true in production
+      httpOnly: true, // Helps prevent XSS attacks
+      sameSite: "strict", // ✅ Protects against CSRF attacks
+      maxAge: 1000 * 60 * 15, // Session expiration set to 15 minutes
     },
   })
 );
+
+
+// ✅ [MODIFIED] Auto Logout Inactive Users
+app.use((req, res, next) => {
+  if (req.session) {
+    req.session.lastActivity = Date.now();
+  }
+  next();
+});
+
+// ✅ [MODIFIED] Periodic Check for Session Expiry
+setInterval(() => {
+  if (req.session && req.session.lastActivity) {
+    const now = Date.now();
+    if (now - req.session.lastActivity > 1000 * 60 * 60) {
+      // ✅ Logout inactive users after 1 hour
+      req.session.destroy();
+    }
+  }
+}, 60000); // Check every 60 seconds
 
 // [SECTION] CORS Setup
 const corsOptions = {
@@ -168,7 +194,18 @@ mongoose.connection.once("open", () =>
 app.use("/users", userRoutes);
 app.use("/courses", courseRoutes);
 app.use("/news", newsRoutes);
-app.use("/api", captchaRoute);  // Captcha route setup
+app.use("/api", captchaRoute); // Captcha route setup
+// ✅ [MODIFIED] Secure Logout Route
+app.get("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Error destroying session:", err);
+    } else {
+      res.clearCookie("connect.sid"); // ✅ Remove session cookie
+      res.status(200).send({ message: "Logged out successfully" });
+    }
+  });
+});
 
 // [SECTION] Server Gateway Response
 if (require.main === module) {

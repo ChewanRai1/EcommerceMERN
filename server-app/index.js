@@ -147,25 +147,27 @@ app.use(
   })
 );
 
-
-// ✅ [MODIFIED] Auto Logout Inactive Users
+//  Track session last activity
 app.use((req, res, next) => {
-  if (req.session) {
-    req.session.lastActivity = Date.now();
-  }
+  req.session.lastActivity = Date.now();
   next();
 });
 
-// ✅ [MODIFIED] Periodic Check for Session Expiry
-setInterval(() => {
-  if (req.session && req.session.lastActivity) {
-    const now = Date.now();
-    if (now - req.session.lastActivity > 1000 * 60 * 60) {
-      // ✅ Logout inactive users after 1 hour
-      req.session.destroy();
-    }
+// Handle session expiration on each request
+app.use((req, res, next) => {
+  if (
+    req.session.lastActivity &&
+    Date.now() - req.session.lastActivity > 15 * 60 * 1000
+  ) {
+    // 15 min timeout
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+      }
+    });
   }
-}, 60000); // Check every 60 seconds
+  next();
+});
 
 // [SECTION] CORS Setup
 const corsOptions = {

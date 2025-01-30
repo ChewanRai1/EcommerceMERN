@@ -8,7 +8,7 @@
 // const captchaRoute = require("./routes/captchaRoute");
 // // require('./passport');
 
-// // [SECTION] Environment Setup
+// // [SECTIONIS] Environment Setup
 // // const port = 4000;
 // require("dotenv").config();
 
@@ -115,7 +115,7 @@ const MongoStore = require("connect-mongo"); //Store session
 const captchaRoute = require("./routes/captchaRoute");
 
 require("dotenv").config(); // Load environment variables
-
+console.log("Loaded ENCRYPTION_KEY:", process.env.ENCRYPTION_KEY);
 //[SECTION] Routes
 const userRoutes = require("./routes/user");
 const courseRoutes = require("./routes/course");

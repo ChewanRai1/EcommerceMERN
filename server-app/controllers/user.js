@@ -6,6 +6,9 @@ const auth = require("../auth");
 
 const { errorHandler } = auth;
 
+const PASSWORD_EXPIRY_DAYS = 90;
+const PREVIOUS_PASSWORD_LIMIT = 3;
+
 // Define password complexity regex
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
@@ -79,23 +82,18 @@ module.exports.checkEmailExists = (req, res) => {
 //     );
 //   }
 // };
-
+// **User Registration**
 module.exports.registerUser = async (req, res) => {
   const { firstName, lastName, email, mobileNo, password } = req.body;
 
-  // Email validation
   if (!email.includes("@")) {
     return res.status(400).send({ message: "Invalid email format" });
   }
-
-  // Mobile number validation
   if (mobileNo.length !== 10 || !/^\d+$/.test(mobileNo)) {
     return res
       .status(400)
       .send({ message: "Mobile number must be 10 digits long" });
   }
-
-  // Password complexity validation
   if (!passwordRegex.test(password)) {
     return res.status(400).send({
       message:
@@ -105,21 +103,53 @@ module.exports.registerUser = async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = new User({
       firstName,
       lastName,
       email,
       mobileNo,
       password: hashedPassword,
+      passwordChangedAt: Date.now(),
     });
 
     await newUser.save();
-    res
-      .status(201)
-      .send({ message: "User registered successfully", user: newUser });
+    res.status(201).send({ message: "User registered successfully" });
   } catch (error) {
-    errorHandler(error, req, res);
+    res.status(500).send({ message: "Error registering user", error });
+  }
+};
+
+// **Password Reset with Reuse Prevention**
+module.exports.resetPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!passwordRegex.test(newPassword)) {
+      return res
+        .status(400)
+        .json({ message: "Password does not meet security requirements." });
+    }
+    if (user.isPasswordReused(newPassword)) {
+      return res
+        .status(400)
+        .json({ message: "You cannot reuse recent passwords." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.previousPasswords.push(user.password);
+
+    if (user.previousPasswords.length > PREVIOUS_PASSWORD_LIMIT) {
+      user.previousPasswords.shift();
+    }
+
+    user.password = hashedPassword;
+    user.passwordChangedAt = Date.now();
+    await user.save();
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 

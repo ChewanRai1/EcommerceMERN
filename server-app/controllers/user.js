@@ -5,6 +5,7 @@ const Enrollment = require("../models/Enrollment");
 const auth = require("../auth");
 
 const { errorHandler } = auth;
+const { encrypt, decrypt, hashEmail } = require("../utils/security");
 
 const PASSWORD_EXPIRY_DAYS = 90;
 const PREVIOUS_PASSWORD_LIMIT = 3;
@@ -35,10 +36,11 @@ const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 // };
 
 // Check encrypted email
+// ✅ **Check Email Exists (Using Hashed Email)**
 module.exports.checkEmailExists = async (req, res) => {
   try {
-    const encryptedEmail = encrypt(req.body.email);
-    const user = await User.findOne({ email: encryptedEmail });
+    const hashedEmail = hashEmail(req.body.email);
+    const user = await User.findOne({ hashedEmail });
 
     if (user) {
       return res.status(409).send({ message: "Duplicate email found" });
@@ -98,39 +100,86 @@ module.exports.checkEmailExists = async (req, res) => {
 //   }
 // };
 // **User Registration**
+// module.exports.registerUser = async (req, res) => {
+//   const { firstName, lastName, email, mobileNo, password } = req.body;
+
+//   if (!email.includes("@")) {
+//     return res.status(400).send({ message: "Invalid email format" });
+//   }
+//   if (mobileNo.length !== 10 || !/^\d+$/.test(mobileNo)) {
+//     return res
+//       .status(400)
+//       .send({ message: "Mobile number must be 10 digits long" });
+//   }
+//   if (!passwordRegex.test(password)) {
+//     return res.status(400).send({
+//       message:
+//         "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
+//     });
+//   }
+
+//   try {
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const newUser = new User({
+//       firstName,
+//       lastName,
+//       email,
+//       mobileNo,
+//       password: hashedPassword,
+//       passwordChangedAt: Date.now(),
+//     });
+
+//     await newUser.save();
+//     res.status(201).send({ message: "User registered successfully" });
+//   } catch (error) {
+//     res.status(500).send({ message: "Error registering user", error });
+//   }
+// };
+
+//For encrypting email and phone
+// ✅ **Register User**
+// **✅ User Registration (Ensuring Encrypted Storage & Hashed Email Uniqueness)**
 module.exports.registerUser = async (req, res) => {
-  const { firstName, lastName, email, mobileNo, password } = req.body;
-
-  if (!email.includes("@")) {
-    return res.status(400).send({ message: "Invalid email format" });
-  }
-  if (mobileNo.length !== 10 || !/^\d+$/.test(mobileNo)) {
-    return res
-      .status(400)
-      .send({ message: "Mobile number must be 10 digits long" });
-  }
-  if (!passwordRegex.test(password)) {
-    return res.status(400).send({
-      message:
-        "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
-    });
-  }
-
   try {
+    const { firstName, lastName, email, mobileNo, password } = req.body;
+
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).send({ message: "Invalid email format" });
+    }
+    if (mobileNo.length !== 10 || !/^\d+$/.test(mobileNo)) {
+      return res.status(400).send({ message: "Mobile number must be 10 digits long" });
+    }
+    if (!passwordRegex.test(password)) {
+      return res.status(400).send({
+        message: "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedEmail = hashEmail(email);
+    const encryptedEmail = encrypt(email);
+    const encryptedMobile = encrypt(mobileNo);
+
+    // ✅ Check if email already exists
+    if (await User.findOne({ hashedEmail })) {
+      return res.status(409).send({ message: "Duplicate email found" });
+    }
+
     const newUser = new User({
       firstName,
       lastName,
-      email,
-      mobileNo,
+      hashedEmail,
+      email: encryptedEmail,
+      mobileNo: encryptedMobile,
       password: hashedPassword,
-      passwordChangedAt: Date.now(),
+      passwordChangedAt: Date.now(), // ✅ Added back to track password updates
     });
 
     await newUser.save();
     res.status(201).send({ message: "User registered successfully" });
   } catch (error) {
-    res.status(500).send({ message: "Error registering user", error });
+    console.error("❌ Registration Error:", error);
+    res.status(500).send({ message: "Error registering user", error: error.message });
   }
 };
 
@@ -175,36 +224,50 @@ module.exports.resetPassword = async (req, res) => {
     2. Compare the password provided in the login form with the password stored in the database
     3. Generate/return a JSON web token if the user is successfully logged in and return false if not
 */
-module.exports.loginUser = (req, res) => {
-  if (req.body.email.includes("@")) {
-    return User.findOne({ email: req.body.email })
-      .then((result) => {
-        if (result == null) {
-          // if the email is not found, send a message 'No email found'.
-          return res.status(404).send({ message: "No email found" });
-        } else {
-          const isPasswordCorrect = bcrypt.compareSync(
-            req.body.password,
-            result.password
-          );
-          if (isPasswordCorrect) {
-            // if all needed requirements are achieved, send a success message 'User logged in successfully' and return the access token.
-            return res.status(200).send({
-              message: "User logged in successfully",
-              access: auth.createAccessToken(result),
-            });
-          } else {
-            // if the email and password is incorrect, send a message 'Incorrect email or password'.
-            return res
-              .status(401)
-              .send({ message: "Incorrect email or password" });
-          }
-        }
-      })
-      .catch((error) => errorHandler(error, req, res));
-  } else {
-    // if the email used in not in the right format, send a message 'Invalid email format'.
-    return res.status(400).send({ message: "Invalid email format" });
+// **✅ User Login with Hashed Email Lookup**
+module.exports.loginUser = async (req, res) => {
+  try {
+    const hashedEmail = hashEmail(req.body.email);
+    const user = await User.findOne({ hashedEmail });
+
+    if (!user) {
+      return res.status(404).send({ message: "Email does not exist" });
+    }
+
+    const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
+    if (!isPasswordCorrect) {
+      return res.status(401).send({ message: "Incorrect email or password" });
+    }
+
+    res.status(200).send({
+      message: "User logged in successfully",
+      access: auth.createAccessToken(user),
+    });
+  } catch (error) {
+    console.error("❌ Login Error:", error);
+    res.status(500).send({ message: "Error logging in", error: error.message });
+  }
+};
+
+// **✅ Retrieve User Profile (Decrypting Encrypted Fields)**
+module.exports.getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password -previousPasswords");
+    if (!user) {
+      return res.status(404).json({ message: "Invalid token or user not found" });
+    }
+
+    // ✅ Manually decrypt email and mobile before returning response
+    const decryptedUser = {
+      ...user._doc,
+      email: decrypt(user.email),
+      mobileNo: decrypt(user.mobileNo),
+    };
+
+    res.status(200).json(decryptedUser);
+  } catch (error) {
+    console.error("Error retrieving profile:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -230,30 +293,30 @@ module.exports.loginUser = (req, res) => {
 //     .catch((error) => errorHandler(error, req, res));
 // };
 
-module.exports.getProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select(
-      "-password -previousPasswords"
-    );
-    if (!user) {
-      return res
-        .status(404)
-        .json({ message: "Invalid token or user not found" });
-    }
+// module.exports.getProfile = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id).select(
+//       "-password -previousPasswords"
+//     );
+//     if (!user) {
+//       return res
+//         .status(404)
+//         .json({ message: "Invalid token or user not found" });
+//     }
 
-    // ✅ Manually decrypt email and mobile number before sending response
-    const decryptedUser = {
-      ...user._doc, // Convert Mongoose object to plain JSON
-      email: decrypt(user.email),
-      mobileNo: decrypt(user.mobileNo),
-    };
+//     // ✅ Manually decrypt email and mobile number before sending response
+//     const decryptedUser = {
+//       ...user._doc, // Convert Mongoose object to plain JSON
+//       email: decrypt(user.email),
+//       mobileNo: decrypt(user.mobileNo),
+//     };
 
-    res.status(200).json(decryptedUser);
-  } catch (error) {
-    console.error("Error retrieving profile:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+//     res.status(200).json(decryptedUser);
+//   } catch (error) {
+//     console.error("Error retrieving profile:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
 
 module.exports.enroll = (req, res) => {
   console.log(req.user.id);

@@ -19,6 +19,12 @@ router.post("/register", userController.registerUser);
 // Reset password (Enforces expiry & reuse prevention)
 router.put("/reset-password", auth.verify, userController.resetPassword);
 
+// Forgot Password Route
+router.post("/forgot-password", userController.forgotPassword);
+
+router.put("/change-password", userController.changePassword);  
+router.post("/verify-otp", userController.verifyOTP);
+
 //[SECTION] Route for user authentication
 router.post("/login", userController.loginUser);
 
@@ -75,7 +81,6 @@ router.get("/success", isLoggedIn, (req, res) => {
   console.log(req.user);
   res.send(`Welcome ${req.user.displayName}`);
 });
-
 
 //This is through auth.js
 //[SECTION] Route for logging out of the application

@@ -198,38 +198,47 @@ module.exports.registerUser = async (req, res) => {
 };
 
 // **Password Reset with Reuse Prevention**
+
 module.exports.resetPassword = async (req, res) => {
   try {
+    console.log("Received CSRF Token:", req.headers["x-xsrf-token"]);
+    console.log("Stored CSRF Token:", req.cookies["XSRF-TOKEN"]);
+    console.log("Session CSRF Token:", req.csrfToken());
+    console.log("✅ Session data at password reset:", req.session); // CHECK SESSION
+    // if (!req.session.userId) {
+    //   return res
+    //     .status(401)
+    //     .json({ message: "Unauthorized request. Please log in again." });
+    // }
+    if (!req.session.userId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized request. Please log in again." });
+    }
+
+    // ✅ Compare CSRF token with stored cookie value
+    if (req.headers["x-xsrf-token"] !== req.cookies["XSRF-TOKEN"]) {
+      return res.status(403).json({ message: "Invalid CSRF token" });
+    }
+
     const { newPassword } = req.body;
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.session.userId);
 
-    if (!passwordRegex.test(newPassword)) {
-      return res
-        .status(400)
-        .json({ message: "Password does not meet security requirements." });
-    }
-    if (user.isPasswordReused(newPassword)) {
-      return res
-        .status(400)
-        .json({ message: "You cannot reuse recent passwords." });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.previousPasswords.push(user.password);
-
-    if (user.previousPasswords.length > PREVIOUS_PASSWORD_LIMIT) {
-      user.previousPasswords.shift();
-    }
-
-    user.password = hashedPassword;
-    user.passwordChangedAt = Date.now();
+    // ✅ Hash and save new password
+    user.password = bcrypt.hashSync(newPassword, 10);
     await user.save();
 
-    res.status(200).json({ message: "Password updated successfully" });
+    res.status(200).json({ message: "Password reset successfully." });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error });
+    console.error("❌ Password Reset Error:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 };
+
 const OTP_EXPIRY_TIME = 10 * 60 * 1000; // 10 minutes
 
 module.exports.forgotPassword = async (req, res) => {
@@ -356,6 +365,32 @@ module.exports.verifyOTP = async (req, res) => {
     3. Generate/return a JSON web token if the user is successfully logged in and return false if not
 */
 // **✅ User Login with Hashed Email Lookup**
+// module.exports.loginUser = async (req, res) => {
+//   try {
+//     const hashedEmail = hashEmail(req.body.email);
+//     const user = await User.findOne({ hashedEmail });
+
+//     if (!user) {
+//       return res.status(404).send({ message: "Email does not exist" });
+//     }
+
+//     const isPasswordCorrect = bcrypt.compareSync(
+//       req.body.password,
+//       user.password
+//     );
+//     if (!isPasswordCorrect) {
+//       return res.status(401).send({ message: "Incorrect email or password" });
+//     }
+
+//     res.status(200).send({
+//       message: "User logged in successfully",
+//       access: auth.createAccessToken(user),
+//     });
+//   } catch (error) {
+//     console.error("❌ Login Error:", error);
+//     res.status(500).send({ message: "Error logging in", error: error.message });
+//   }
+// };
 module.exports.loginUser = async (req, res) => {
   try {
     const hashedEmail = hashEmail(req.body.email);
@@ -373,9 +408,19 @@ module.exports.loginUser = async (req, res) => {
       return res.status(401).send({ message: "Incorrect email or password" });
     }
 
-    res.status(200).send({
-      message: "User logged in successfully",
-      access: auth.createAccessToken(user),
+    // ✅ Store user ID in session
+    req.session.userId = user._id;
+
+    // ✅ Ensure session is saved before responding
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+        return res.status(500).send({ message: "Session error" });
+      }
+      res.status(200).send({
+        message: "User logged in successfully",
+        access: auth.createAccessToken(user),
+      });
     });
   } catch (error) {
     console.error("❌ Login Error:", error);
@@ -507,33 +552,33 @@ module.exports.getEnrollments = (req, res) => {
 
 //[SECTION] Reset password
 // Modify how we export our controllers
-module.exports.resetPassword = async (req, res) => {
-  try {
-    // Add a console.log() to check if you can pass data properly from postman
-    // console.log(req.body);
+// module.exports.resetPassword = async (req, res) => {
+//   try {
+//     // Add a console.log() to check if you can pass data properly from postman
+//     // console.log(req.body);
 
-    // Add a console.log() to show req.user, our decoded token, does not contain userId property but instead id
-    // console.log(req.user);
+//     // Add a console.log() to show req.user, our decoded token, does not contain userId property but instead id
+//     // console.log(req.user);
 
-    const { newPassword } = req.body;
+//     const { newPassword } = req.body;
 
-    // update userId to id because our version of req.user does not have userId property but id property instead.
-    const { id } = req.user; // Extracting user ID from the authorization header
+//     // update userId to id because our version of req.user does not have userId property but id property instead.
+//     const { id } = req.user; // Extracting user ID from the authorization header
 
-    // Hashing the new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+//     // Hashing the new password
+//     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update userId update to id
-    // Updating the user's password in the database
-    await User.findByIdAndUpdate(id, { password: hashedPassword });
+//     // Update userId update to id
+//     // Updating the user's password in the database
+//     await User.findByIdAndUpdate(id, { password: hashedPassword });
 
-    // Sending a success response
-    res.status(200).json({ message: "Password reset successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+//     // Sending a success response
+//     res.status(200).json({ message: "Password reset successfully" });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
 
 //[SECTION] Update profile
 // Update the function to arrow to unify our code formats

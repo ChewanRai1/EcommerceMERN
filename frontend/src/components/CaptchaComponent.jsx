@@ -79,12 +79,29 @@ export default function CaptchaComponent({ onCaptchaVerified }) {
     fetchCaptcha();
   }, []);
 
+  // const fetchCaptcha = async () => {
+  //   try {
+  //     const response = await axiosInstance.get("/api/captcha", {
+  //       responseType: "text",
+  //     });
+
+  //     console.log("CAPTCHA Response:", response.data); // ✅ Debugging
+  //     setCaptchaSvg(response.data);
+  //     setError("");
+  //   } catch (err) {
+  //     console.error("Error fetching CAPTCHA:", err);
+  //     setError("Failed to load CAPTCHA. Please refresh the page.");
+  //   }
+  // };
   const fetchCaptcha = async () => {
     try {
       const response = await axiosInstance.get("/api/captcha", {
-        responseType: "text",
+        responseType: "text", // ✅ Fetch SVG as text
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
-
+  
       console.log("CAPTCHA Response:", response.data); // ✅ Debugging
       setCaptchaSvg(response.data);
       setError("");
@@ -93,6 +110,8 @@ export default function CaptchaComponent({ onCaptchaVerified }) {
       setError("Failed to load CAPTCHA. Please refresh the page.");
     }
   };
+  
+  
 
   const verifyCaptcha = async () => {
     try {

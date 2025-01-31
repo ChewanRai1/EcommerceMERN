@@ -127,6 +127,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+console.log("Loaded JWT Secret:", process.env.JWT_SECRET_KEY);
+
 // [SECTION] Session Setup (Use a single session configuration)
 app.use(
   session({

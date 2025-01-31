@@ -127,6 +127,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const { encrypt, decrypt, hashEmail } = require("../utils/security");
+const moment = require("moment");
 
 const PASSWORD_EXPIRY_DAYS = 90;
 const PREVIOUS_PASSWORD_LIMIT = 3;
@@ -134,7 +135,7 @@ const PREVIOUS_PASSWORD_LIMIT = 3;
 const userSchema = new mongoose.Schema({
   firstName: { type: String, required: [true, "First Name is Required"] },
   lastName: { type: String, required: [true, "Last Name is Required"] },
-  hashedEmail: { type: String, required: true, unique: true }, // Store hashed email for uniqueness check
+  hashedEmail: { type: String, required: true, unique: true, index: true }, // Indexed for faster lookups
   email: {
     type: String,
     required: [true, "Email is Required"],
@@ -154,22 +155,42 @@ const userSchema = new mongoose.Schema({
     set: encrypt,
     get: decrypt,
   },
+  // ✅ Ensure OTP fields exist
+  resetOTP: { type: Number },
+  otpExpiry: { type: Date },
   passwordChangedAt: { type: Date, default: Date.now },
   previousPasswords: { type: [String], default: [] },
 });
 
-// ✅ **Check Password Reuse**
-userSchema.methods.isPasswordReused = function (newPassword) {
-  return this.previousPasswords.some((pwd) =>
-    bcrypt.compareSync(newPassword, pwd)
-  );
+// // ✅ **Check Password Reuse**
+// userSchema.methods.isPasswordReused = function (newPassword) {
+//   return this.previousPasswords.some((pwd) =>
+//     bcrypt.compareSync(newPassword, pwd)
+//   );
+// };
+
+// ✅ **Check Password Reuse (Using Async for Performance)**
+userSchema.methods.isPasswordReused = async function (newPassword) {
+  for (const oldPassword of this.previousPasswords) {
+    if (await bcrypt.compare(newPassword, oldPassword)) {
+      return true;
+    }
+  }
+  return false;
 };
 
-// ✅ **Check Password Expiry**
+// // ✅ **Check Password Expiry**
+// userSchema.methods.isPasswordExpired = function () {
+//   const expiryDate = new Date(this.passwordChangedAt);
+//   expiryDate.setDate(expiryDate.getDate() + PASSWORD_EXPIRY_DAYS);
+//   return new Date() > expiryDate;
+// };
+
+// ✅ **Check Password Expiry (Using moment.js for Accuracy)**
 userSchema.methods.isPasswordExpired = function () {
-  const expiryDate = new Date(this.passwordChangedAt);
-  expiryDate.setDate(expiryDate.getDate() + PASSWORD_EXPIRY_DAYS);
-  return new Date() > expiryDate;
+  return moment(this.passwordChangedAt)
+    .add(PASSWORD_EXPIRY_DAYS, "days")
+    .isBefore(moment());
 };
 
 module.exports = mongoose.model("User", userSchema);

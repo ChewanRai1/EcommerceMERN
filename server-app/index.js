@@ -107,19 +107,22 @@
 
 // [SECTION] Dependencies and Modules
 const express = require("express");
+
 const mongoose = require("mongoose");
 const cors = require("cors");
 const passport = require("passport");
 const session = require("express-session");
 const MongoStore = require("connect-mongo"); //Store session
-const captchaRoute = require("./routes/captchaRoute");
 
+const csrf = require("csurf");
+const cookieParser = require("cookie-parser");
 require("dotenv").config(); // Load environment variables
 console.log("Loaded ENCRYPTION_KEY:", process.env.ENCRYPTION_KEY);
 //[SECTION] Routes
 const userRoutes = require("./routes/user");
 const courseRoutes = require("./routes/course");
 const newsRoutes = require("./routes/news");
+const captchaRoute = require("./routes/captchaRoute");
 
 // [SECTION] Server Setup
 const app = express();
@@ -127,6 +130,19 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(cookieParser());
+
+// ✅ Enable CSRF protection
+const csrfProtection = csrf({ cookie: true });
+
+const corsOptions = {
+  origin: "http://localhost:5173", // Allow frontend URL
+  credentials: true, // Allow cookies & headers
+  methods: "GET, POST, PUT, DELETE", // Allow specific HTTP methods
+  allowedHeaders: "Content-Type, Authorization, X-XSRF-TOKEN", // Allow these headers
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
 
 console.log("Loaded JWT Secret:", process.env.JWT_SECRET_KEY);
 
@@ -139,10 +155,12 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_STRING, // Store sessions in MongoDB
       collectionName: "sessions",
+      // collectionName: "sessions",
       ttl: 3600, // Sessions expire in 1 hour
     }),
     cookie: {
       secure: process.env.NODE_ENV === "production", // Set to true in production
+      // secure: false,
       httpOnly: true, // Helps prevent XSS attacks
       sameSite: "strict", // ✅ Protects against CSRF attacks
       maxAge: 1000 * 60 * 15, // Session expiration set to 15 minutes
@@ -172,15 +190,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// [SECTION] CORS Setup
-const corsOptions = {
-  origin: ["http://localhost:5173"],
-  credentials: true,
-  optionsSuccessStatus: 200,
-};
-
-app.use(cors(corsOptions));
-
 // [Section] Google Login Setup
 app.use(passport.initialize());
 app.use(passport.session());
@@ -194,6 +203,39 @@ mongoose.connect(process.env.MONGODB_STRING, {
 mongoose.connection.once("open", () =>
   console.log("Now connected to MongoDB Atlas.")
 );
+
+// app.use((req, res, next) => {
+//   res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+//   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//   res.header("Access-Control-Allow-Credentials", "true"); // Allow cookies
+//   next();
+// });
+
+// app.put("/users/reset-password", csrfProtection, (req, res, next) => {
+//   next();
+// });
+
+// app.get("/users/reset-password", csrfProtection, (req, res) => {
+//   res.cookie("XSRF-TOKEN", req.csrfToken(), { httpOnly: false, secure: false });
+//   res.json({ csrfToken: req.csrfToken() });
+// });
+
+app.get("/users/reset-password", csrfProtection, (req, res) => {
+  res.cookie("XSRF-TOKEN", req.csrfToken(), {
+    httpOnly: false, // ✅ Allow frontend to read the token
+    secure: process.env.NODE_ENV === "production", // ✅ Use HTTPS in production
+    sameSite: "strict", // Prevent CSRF attacks
+  });
+  res.json({ csrfToken: req.csrfToken() });
+});
+
+app.use((req, res, next) => {
+  if (req.session) {
+    req.session.lastActivity = Date.now(); // ✅ Refresh session activity
+  }
+  next();
+});
 
 // [SECTION] Backend Routes
 app.use("/users", userRoutes);

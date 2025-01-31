@@ -11,6 +11,10 @@ import Courses from "./pages/Courses";
 import News from "./pages/News";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import ForgotPassword from "./components/ForgotPassword"; // Ensure the correct import
+import VerifyOTP from "./components/VerifyOTP";
+import ChangePassword from "./components/ChangePassword"; // Next step
+
 import Logout from "./pages/Logout";
 import Profile from "./pages/Profile";
 import CourseView from "./pages/CourseView"; // <---
@@ -109,6 +113,14 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/verify-otp" element={<VerifyOTP />} />
+              <Route
+                path="/change-password"
+                element={<ChangePassword />}
+              />{" "}
+              <Route path="/verify-otp" element={<VerifyOTP />} />
+              <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/logout" element={<Logout />} />
               <Route path="*" element={<Error />} />
             </Routes>

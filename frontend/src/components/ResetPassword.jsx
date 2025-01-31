@@ -1,11 +1,54 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+// import { useState } from "react";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [csrfToken, setCsrfToken] = useState("");
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/users/reset-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ newPassword: newPassword }),
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(response);
+      console.log(data);
+      if (!response.ok) {
+        setError(data.message || "Error resetting password.");
+      } else {
+        setSuccess("Password reset successfully.");
+        setError("");
+      }
+    } catch (err) {
+      console.log(err);
+      setError("An error occurred while resetting the password.");
+    }
+  };
+
+  // export default function ResetPassword() {
+  //   const [newPassword, setNewPassword] = useState("");
+  //   const [confirmPassword, setConfirmPassword] = useState("");
+  //   const [error, setError] = useState("");
+  //   const [success, setSuccess] = useState("");
+  //   const [csrfToken, setCsrfToken] = useState("");
 
   // // ✅ Fetch CSRF token on component mount
   // useEffect(() => {
@@ -62,65 +105,65 @@ export default function ResetPassword() {
   //       console.error("Error fetching CSRF token:", error);
   //     });
   // }, []);
-  // ✅ Fetch CSRF Token on Component Mount
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/users/reset-password`, {
-      method: "GET",
-      credentials: "include", // Ensure cookies are sent
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! Status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("Parsed CSRF Token:", data);
-        setCsrfToken(data.csrfToken); // ✅ Store CSRF token in state
-      })
-      .catch((error) => console.error("Error fetching CSRF token:", error));
-  }, []);
+  // // ✅ Fetch CSRF Token on Component Mount
+  // useEffect(() => {
+  //   fetch(`${import.meta.env.VITE_API_URL}/users/reset-password`, {
+  //     method: "GET",
+  //     credentials: "include", // Ensure cookies are sent
+  //   })
+  //     .then((res) => {
+  //       if (!res.ok) {
+  //         throw new Error(`HTTP error! Status: ${res.status}`);
+  //       }
+  //       return res.json();
+  //     })
+  //     .then((data) => {
+  //       console.log("Parsed CSRF Token:", data);
+  //       setCsrfToken(data.csrfToken); // ✅ Store CSRF token in state
+  //     })
+  //     .catch((error) => console.error("Error fetching CSRF token:", error));
+  // }, []);
 
-  // ✅ Handle Password Reset Submission
-  const handlePasswordReset = async (e) => {
-    e.preventDefault();
+  // // ✅ Handle Password Reset Submission
+  // const handlePasswordReset = async (e) => {
+  //   e.preventDefault();
 
-    if (!csrfToken) {
-      setError("CSRF token is missing.");
-      return;
-    }
+  //   if (!csrfToken) {
+  //     setError("CSRF token is missing.");
+  //     return;
+  //   }
 
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
+  //   if (newPassword !== confirmPassword) {
+  //     setError("Passwords do not match.");
+  //     return;
+  //   }
 
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/users/reset-password`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-XSRF-TOKEN": csrfToken, // ✅ Ensure CSRF token is sent
-          },
-          body: JSON.stringify({ newPassword }),
-          credentials: "include", // ✅ Ensure cookies are included
-        }
-      );
+  //   try {
+  //     const response = await fetch(
+  //       `${import.meta.env.VITE_API_URL}/users/reset-password`,
+  //       {
+  //         method: "PUT",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           "X-XSRF-TOKEN": csrfToken, // ✅ Ensure CSRF token is sent
+  //         },
+  //         body: JSON.stringify({ newPassword }),
+  //         credentials: "include", // ✅ Ensure cookies are included
+  //       }
+  //     );
 
-      const data = await response.json();
+  //     const data = await response.json();
 
-      if (!response.ok) {
-        setError(data.message || "Error resetting password.");
-      } else {
-        setSuccess("Password reset successfully.");
-        setError("");
-      }
-    } catch {
-      setError("An error occurred while resetting the password.");
-    }
-  };
+  //     if (!response.ok) {
+  //       setError(data.message || "Error resetting password.");
+  //     } else {
+  //       setSuccess("Password reset successfully.");
+  //       setError("");
+  //     }
+  //   } catch {
+  //     setError("An error occurred while resetting the password.");
+  //   }
+  // };
 
   return (
     <div className="container mt-5">

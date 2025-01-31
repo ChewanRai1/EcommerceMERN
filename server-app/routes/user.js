@@ -1,5 +1,6 @@
 //[SECTION] Dependencies and Modules
 const express = require("express");
+
 const userController = require("../controllers/user");
 const auth = require("../auth");
 //Google Login
@@ -8,21 +9,45 @@ const passport = require("passport");
 const { verify, isLoggedIn } = auth;
 
 //[SECTION] Routing Component
+
+const csrf = require("csurf");
 const router = express.Router();
+const csrfProtection = csrf({ cookie: true }); // ✅ CSRF protection
 
 // Routes for duplicate email
 router.post("/checkEmail", userController.checkEmailExists);
 
 //[SECTION] Route for user registration
 router.post("/register", userController.registerUser);
+// ✅ Add a GET route to fetch CSRF token
+// router.get("/reset-password", csrfProtection, (req, res) => {
+//   res.cookie("XSRF-TOKEN", req.csrfToken(), { httpOnly: false, secure: false });
+//   res.json({ csrfToken: req.csrfToken() });
+// });
 
-// Reset password (Enforces expiry & reuse prevention)
-router.put("/reset-password", auth.verify, userController.resetPassword);
+// // Reset password (Enforces expiry & reuse prevention)
+// // router.put("/reset-password", auth.verify, userController.resetPassword);
+// // ✅ Secure Password Reset Route
+// router.put("/reset-password", csrfProtection, userController.resetPassword);
+
+// ✅ Fetch CSRF Token
+router.get("/reset-password", csrfProtection, (req, res) => {
+  res.cookie("XSRF-TOKEN", req.csrfToken(), {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+  res.json({ csrfToken: req.csrfToken() });
+});
+
+// ✅ Update Reset Password Route
+router.put("/reset-password", csrfProtection, userController.resetPassword);
+
 
 // Forgot Password Route
 router.post("/forgot-password", userController.forgotPassword);
 
-router.put("/change-password", userController.changePassword);  
+router.put("/change-password", userController.changePassword);
 router.post("/verify-otp", userController.verifyOTP);
 
 //[SECTION] Route for user authentication
@@ -104,7 +129,7 @@ router.get("/success", isLoggedIn, (req, res) => {
 // });
 
 //[SECTION] Route for resetting the user password
-router.put("/reset-password", verify, userController.resetPassword);
+// router.put("/reset-password", verify, userController.resetPassword);
 
 //[SECTION] Route for updating user profile
 // Update authMiddleware.authenticateToken to our own auth module and use verify instead.

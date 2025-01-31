@@ -1,11 +1,20 @@
 //[SECTION] Dependencies and Modules
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Enrollment = require("../models/Enrollment");
 const auth = require("../auth");
 
+const { sendOTPEmail } = require("../utils/emailService");
+// const bcrypt = require("bcryptjs");
+const { sendResetEmail } = require("../utils/emailService");
+const { hashEmail, encrypt, decrypt } = require("../utils/security");
+
 const { errorHandler } = auth;
-const { encrypt, decrypt, hashEmail } = require("../utils/security");
+// const { encrypt, decrypt, hashEmail } = require("../utils/security");
 
 const PASSWORD_EXPIRY_DAYS = 90;
 const PREVIOUS_PASSWORD_LIMIT = 3;
@@ -147,11 +156,14 @@ module.exports.registerUser = async (req, res) => {
       return res.status(400).send({ message: "Invalid email format" });
     }
     if (mobileNo.length !== 10 || !/^\d+$/.test(mobileNo)) {
-      return res.status(400).send({ message: "Mobile number must be 10 digits long" });
+      return res
+        .status(400)
+        .send({ message: "Mobile number must be 10 digits long" });
     }
     if (!passwordRegex.test(password)) {
       return res.status(400).send({
-        message: "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
+        message:
+          "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
       });
     }
 
@@ -179,7 +191,9 @@ module.exports.registerUser = async (req, res) => {
     res.status(201).send({ message: "User registered successfully" });
   } catch (error) {
     console.error("❌ Registration Error:", error);
-    res.status(500).send({ message: "Error registering user", error: error.message });
+    res
+      .status(500)
+      .send({ message: "Error registering user", error: error.message });
   }
 };
 
@@ -216,6 +230,123 @@ module.exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error });
   }
 };
+const OTP_EXPIRY_TIME = 10 * 60 * 1000; // 10 minutes
+
+module.exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const hashedEmail = hashEmail(email);
+
+    // Generate OTP and expiry
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+    console.log("🔹 Generated OTP:", otp);
+
+    // ✅ Use `findOneAndUpdate` with `{ upsert: false }`
+    const user = await User.findOneAndUpdate(
+      { hashedEmail },
+      { $set: { resetOTP: otp, otpExpiry: expiry } },
+      { new: true } // Return updated document
+    );
+
+    if (!user) {
+      console.log("❌ User not found for email:", email);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    console.log("✅ Updated User:", user);
+
+    await sendOTPEmail(decrypt(user.email), otp);
+    res.status(200).json({ message: "OTP sent successfully!" });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+module.exports.changePassword = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1]; // ✅ Extract Token
+
+    if (!token)
+      return res.status(401).json({ message: "Unauthorized request" });
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    const user = await User.findById(decoded.id);
+
+    if (!user)
+      return res.status(404).json({ message: "Invalid or expired token" });
+
+    const { newPassword } = req.body;
+
+    // Password validation
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Weak password. Use at least 8 chars, 1 uppercase, 1 number, 1 special char.",
+      });
+    }
+
+    // Prevent password reuse
+    if (
+      user.previousPasswords.some((pwd) => bcrypt.compareSync(newPassword, pwd))
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Cannot reuse previous passwords" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.previousPasswords.push(user.password);
+
+    if (user.previousPasswords.length > 3) user.previousPasswords.shift();
+
+    user.password = hashedPassword;
+    user.passwordChangedAt = Date.now();
+    await user.save();
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("❌ Change Password Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+module.exports.verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const hashedEmail = hashEmail(email);
+
+    const user = await User.findOne({ hashedEmail });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.resetOTP || Number(user.resetOTP) !== Number(otp)) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (Date.now() > new Date(user.otpExpiry)) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    // ✅ Generate JWT Token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, {
+      expiresIn: "15m", // Token expires in 15 minutes
+    });
+
+    // Clear OTP fields after verification
+    user.resetOTP = null;
+    user.otpExpiry = null;
+    await user.save();
+
+    res.status(200).json({ message: "OTP verified.", token });
+  } catch (error) {
+    console.error("OTP Verification Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 //[SECTION] User authentication
 /*
@@ -234,7 +365,10 @@ module.exports.loginUser = async (req, res) => {
       return res.status(404).send({ message: "Email does not exist" });
     }
 
-    const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
+    const isPasswordCorrect = bcrypt.compareSync(
+      req.body.password,
+      user.password
+    );
     if (!isPasswordCorrect) {
       return res.status(401).send({ message: "Incorrect email or password" });
     }
@@ -252,9 +386,13 @@ module.exports.loginUser = async (req, res) => {
 // **✅ Retrieve User Profile (Decrypting Encrypted Fields)**
 module.exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password -previousPasswords");
+    const user = await User.findById(req.user.id).select(
+      "-password -previousPasswords"
+    );
     if (!user) {
-      return res.status(404).json({ message: "Invalid token or user not found" });
+      return res
+        .status(404)
+        .json({ message: "Invalid token or user not found" });
     }
 
     // ✅ Manually decrypt email and mobile before returning response

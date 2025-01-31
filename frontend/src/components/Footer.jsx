@@ -1,5 +1,10 @@
 import { Container, Row, Col } from "react-bootstrap";
-import { FaFacebookF, FaInstagram, FaLinkedinIn, FaYoutube } from "react-icons/fa";
+import {
+  FaFacebookF,
+  FaInstagram,
+  FaLinkedinIn,
+  FaYoutube,
+} from "react-icons/fa";
 
 export default function Footer() {
   return (
@@ -7,15 +12,26 @@ export default function Footer() {
       <Container>
         <Row>
           <Col md={4}>
-            <h4 className="mb-3">DanpheLink Academy</h4>
+            <h4 className="mb-3">Course Booking</h4>
             <p>
-              We excel in Web Development, Cyber Security, 3D Animation & VFX, AI, and Data Science, delivering over a decade of innovative solutions.
+              We offer a wide range of technical courses in Web Development,
+              Cyber Security, 3D Animation & VFX, AI, and Data Science,
+              providing industry-relevant training with over a decade of
+              expertise.
             </p>
             <div className="social-icons">
-              <a href="#" className="me-3 text-white"><FaFacebookF /></a>
-              <a href="#" className="me-3 text-white"><FaInstagram /></a>
-              <a href="#" className="me-3 text-white"><FaLinkedinIn /></a>
-              <a href="#" className="text-white"><FaYoutube /></a>
+              <a href="#" className="me-3 text-white">
+                <FaFacebookF />
+              </a>
+              <a href="#" className="me-3 text-white">
+                <FaInstagram />
+              </a>
+              <a href="#" className="me-3 text-white">
+                <FaLinkedinIn />
+              </a>
+              <a href="#" className="text-white">
+                <FaYoutube />
+              </a>
             </div>
           </Col>
           <Col md={2}>
@@ -25,8 +41,8 @@ export default function Footer() {
               <li>Web Development</li>
               <li>Animation</li>
               <li>Design</li>
-              <li>Marketing</li>
-              <li>Programming</li>
+              <li>IOT</li>
+              <li>AI</li>
             </ul>
           </Col>
           <Col md={2}>
@@ -41,17 +57,14 @@ export default function Footer() {
           <Col md={4}>
             <h5>Contact Us</h5>
             <p>
-              P&P Building, Kamalpokhari 01, Kathmandu, Nepal<br />
-              +977-9707861393, +977-9707861394
-            </p>
-            <p>
-              AL Aryam Tower, Abu Dhabi, UAE<br />
-              +971 026228107
+              Kathmandu, Nepal
+              <br />
+              +977-9851034453, +977-9842324401
             </p>
           </Col>
         </Row>
         <hr />
-        <p className="text-center m-0">© 2025 DanpheLink. All Rights Reserved.</p>
+        <p className="text-center m-0">© All Rights Reserved.</p>
       </Container>
     </footer>
   );

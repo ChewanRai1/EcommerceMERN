@@ -1,28 +1,30 @@
-import React, { useState } from 'react';
+import { useState } from "react";
 
-export default function ResetPassword(){
-
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+export default function ResetPassword() {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError("Passwords do not match.");
       return;
     }
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/reset-password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ newPassword: newPassword }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/users/reset-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ newPassword: newPassword }),
+        }
+      );
 
       const data = await response.json();
 
@@ -30,14 +32,14 @@ export default function ResetPassword(){
       console.log(data);
 
       if (!response.ok) {
-        setError(data.message || 'Error resetting password.');
+        setError(data.message || "Error resetting password.");
       } else {
-        setSuccess('Password reset successfully.');
-        setError('');
+        setSuccess("Password reset successfully.");
+        setError("");
       }
     } catch (err) {
-    	console.log(err);
-      setError('An error occurred while resetting the password.');
+      console.log(err);
+      setError("An error occurred while resetting the password.");
     }
   };
 
@@ -69,10 +71,10 @@ export default function ResetPassword(){
             required
           />
         </div>
-        <button type="submit" className="btn btn-primary mt-3">Reset Password</button>
+        <button type="submit" className="btn btn-primary mt-3">
+          Reset Password
+        </button>
       </form>
     </div>
   );
-};
-
-
+}

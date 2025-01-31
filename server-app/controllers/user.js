@@ -22,6 +22,7 @@ const PREVIOUS_PASSWORD_LIMIT = 3;
 // Define password complexity regex
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
+const logger = require("../utils/logger");
 //[SECTION] Check if the email already exists
 /*
     Steps: 
@@ -422,6 +423,8 @@ module.exports.loginUser = async (req, res) => {
         access: auth.createAccessToken(user),
       });
     });
+    // ✅ Log successful login
+    logger.info(`User ${user.email} logged in at ${new Date().toISOString()}`);
   } catch (error) {
     console.error("❌ Login Error:", error);
     res.status(500).send({ message: "Error logging in", error: error.message });

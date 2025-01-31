@@ -132,6 +132,8 @@ const captchaRoute = require("./routes/captchaRoute");
 // [SECTION] Server Setup
 const app = express();
 
+const logger = require("./utils/logger");
+const activityLogger = require("./middleware/activityLogger");
 // Load SSL Certificates
 const options = {
   key: fs.readFileSync("./ssl/server.key"),
@@ -139,6 +141,7 @@ const options = {
 };
 
 app.use(express.json());
+app.use(activityLogger);
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser());

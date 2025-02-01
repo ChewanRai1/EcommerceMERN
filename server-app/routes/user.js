@@ -25,24 +25,23 @@ router.post("/register", userController.registerUser);
 //   res.json({ csrfToken: req.csrfToken() });
 // });
 
-// // Reset password (Enforces expiry & reuse prevention)
-// // router.put("/reset-password", auth.verify, userController.resetPassword);
-// // ✅ Secure Password Reset Route
+// Reset password (Enforces expiry & reuse prevention)
+router.put("/reset-password", auth.verify, userController.resetPassword);
+// ✅ Secure Password Reset Route
 // router.put("/reset-password", csrfProtection, userController.resetPassword);
 
 // ✅ Fetch CSRF Token
-router.get("/reset-password", csrfProtection, (req, res) => {
-  res.cookie("XSRF-TOKEN", req.csrfToken(), {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
-  res.json({ csrfToken: req.csrfToken() });
-});
+// router.get("/reset-password", csrfProtection, (req, res) => {
+//   res.cookie("XSRF-TOKEN", req.csrfToken(), {
+//     httpOnly: false,
+//     secure: process.env.NODE_ENV === "production",
+//     sameSite: "strict",
+//   });
+//   res.json({ csrfToken: req.csrfToken() });
+// });
 
-// ✅ Update Reset Password Route
-router.put("/reset-password", csrfProtection, userController.resetPassword);
-
+// // ✅ Update Reset Password Route
+// router.put("/reset-password", csrfProtection, userController.resetPassword);
 
 // Forgot Password Route
 router.post("/forgot-password", userController.forgotPassword);

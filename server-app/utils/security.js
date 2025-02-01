@@ -1,13 +1,11 @@
 const crypto = require("crypto");
-
 const algorithm = "aes-256-cbc";
 const secretKey = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
 
 // ✅ Hash Function (Used for Checking Uniqueness)
 const hashEmail = (email) => {
-  return crypto.createHash("sha256").update(email).digest("hex");
+  return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex");
 };
-
 // ✅ Encrypt Function (For Storing Securely)
 const encrypt = (text) => {
   try {

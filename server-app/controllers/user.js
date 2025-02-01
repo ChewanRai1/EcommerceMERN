@@ -11,16 +11,9 @@ const auth = require("../auth");
 const { sendOTPEmail } = require("../utils/emailService");
 // const bcrypt = require("bcryptjs");
 const { sendResetEmail } = require("../utils/emailService");
-const { hashEmail, encrypt, decrypt } = require("../utils/security");
 
 const { errorHandler } = auth;
 // const { encrypt, decrypt, hashEmail } = require("../utils/security");
-
-const PASSWORD_EXPIRY_DAYS = 90;
-const PREVIOUS_PASSWORD_LIMIT = 3;
-
-// Define password complexity regex
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
 const logger = require("../utils/logger");
 //[SECTION] Check if the email already exists
@@ -149,10 +142,12 @@ module.exports.checkEmailExists = async (req, res) => {
 //For encrypting email and phone
 // ✅ **Register User**
 // **✅ User Registration (Ensuring Encrypted Storage & Hashed Email Uniqueness)**
+// Define password complexity regex
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+const { hashEmail, encrypt, decrypt } = require("../utils/security");
 module.exports.registerUser = async (req, res) => {
   try {
     const { firstName, lastName, email, mobileNo, password } = req.body;
-
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).send({ message: "Invalid email format" });
     }
@@ -167,17 +162,14 @@ module.exports.registerUser = async (req, res) => {
           "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.",
       });
     }
-
     const hashedPassword = await bcrypt.hash(password, 10);
     const hashedEmail = hashEmail(email);
     const encryptedEmail = encrypt(email);
     const encryptedMobile = encrypt(mobileNo);
-
     // ✅ Check if email already exists
     if (await User.findOne({ hashedEmail })) {
       return res.status(409).send({ message: "Duplicate email found" });
     }
-
     const newUser = new User({
       firstName,
       lastName,
@@ -187,7 +179,6 @@ module.exports.registerUser = async (req, res) => {
       password: hashedPassword,
       passwordChangedAt: Date.now(), // ✅ Added back to track password updates
     });
-
     await newUser.save();
     res.status(201).send({ message: "User registered successfully" });
   } catch (error) {
@@ -200,45 +191,126 @@ module.exports.registerUser = async (req, res) => {
 
 // **Password Reset with Reuse Prevention**
 
+// **Password Reset with Reuse Prevention**
+// module.exports.resetPassword = async (req, res) => {
+//   try {
+//     const { newPassword } = req.body;
+//     const user = await User.findById(req.user.id);
+//     if (!passwordRegex.test(newPassword)) {
+//       return res
+//         .status(400)
+//         .json({ message: "Password does not meet security requirements." });
+//     }
+//     if (user.isPasswordReused(newPassword)) {
+//       return res
+//         .status(400)
+//         .json({ message: "You cannot reuse recent passwords." });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(newPassword, 10);
+//     user.previousPasswords.push(user.password);
+
+//     if (user.previousPasswords.length > PREVIOUS_PASSWORD_LIMIT) {
+//       user.previousPasswords.shift();
+//     }
+
+//     user.password = hashedPassword;
+//     user.passwordChangedAt = Date.now();
+//     await user.save();
+
+//     res.status(200).json({ message: "Password updated successfully" });
+//   } catch (error) {
+//     res.status(500).json({ message: "Internal server error", error });
+//   }
+// };
+
+const PASSWORD_EXPIRY_DAYS = 90;
+const PREVIOUS_PASSWORD_LIMIT = 3;
+
 module.exports.resetPassword = async (req, res) => {
   try {
-    console.log("Received CSRF Token:", req.headers["x-xsrf-token"]);
-    console.log("Stored CSRF Token:", req.cookies["XSRF-TOKEN"]);
-    console.log("Session CSRF Token:", req.csrfToken());
-    console.log("✅ Session data at password reset:", req.session); // CHECK SESSION
-    // if (!req.session.userId) {
-    //   return res
-    //     .status(401)
-    //     .json({ message: "Unauthorized request. Please log in again." });
-    // }
-    if (!req.session.userId) {
-      return res
-        .status(401)
-        .json({ message: "Unauthorized request. Please log in again." });
-    }
-
-    // ✅ Compare CSRF token with stored cookie value
-    if (req.headers["x-xsrf-token"] !== req.cookies["XSRF-TOKEN"]) {
-      return res.status(403).json({ message: "Invalid CSRF token" });
-    }
-
     const { newPassword } = req.body;
-    const user = await User.findById(req.session.userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found." });
+    const user = await User.findById(req.user.id);
+    // Check if password has expired
+    const passwordAge = Date.now() - new Date(user.passwordChangedAt).getTime();
+    const passwordExpired =
+      passwordAge > PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+    if (passwordExpired) {
+      return res
+        .status(400)
+        .json({ message: "Your password has expired. Please reset it." });
     }
+    // Validate Password Complexity
+    if (!passwordRegex.test(newPassword)) {
+      return res
+        .status(400)
+        .json({ message: "Password does not meet security requirements." });
+    }
+    // Ensure new password is not in recent passwords
+    const isReused = user.previousPasswords.some(
+      (oldHash) => bcrypt.compareSync(newPassword, oldHash) // Compare new password with old hashes
+    );
 
-    // ✅ Hash and save new password
-    user.password = bcrypt.hashSync(newPassword, 10);
+    if (isReused) {
+      return res
+        .status(400)
+        .json({ message: "You cannot reuse recent passwords." });
+    }
+    // Hash New Password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // Store previous password and maintain the limit
+    user.previousPasswords.push(user.password);
+    if (user.previousPasswords.length > PREVIOUS_PASSWORD_LIMIT) {
+      user.previousPasswords.shift(); // Remove oldest password if limit exceeded
+    }
+    user.password = hashedPassword;
+    user.passwordChangedAt = Date.now();
     await user.save();
-
-    res.status(200).json({ message: "Password reset successfully." });
+    res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
-    console.error("❌ Password Reset Error:", error);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
+
+// module.exports.resetPassword = async (req, res) => {
+//   try {
+//     console.log("Received CSRF Token:", req.headers["x-xsrf-token"]);
+//     console.log("Stored CSRF Token:", req.cookies["XSRF-TOKEN"]);
+//     console.log("Session CSRF Token:", req.csrfToken());
+//     console.log("✅ Session data at password reset:", req.session); // CHECK SESSION
+//     // if (!req.session.userId) {
+//     //   return res
+//     //     .status(401)
+//     //     .json({ message: "Unauthorized request. Please log in again." });
+//     // }
+//     if (!req.session.userId) {
+//       return res
+//         .status(401)
+//         .json({ message: "Unauthorized request. Please log in again." });
+//     }
+
+//     // ✅ Compare CSRF token with stored cookie value
+//     if (req.headers["x-xsrf-token"] !== req.cookies["XSRF-TOKEN"]) {
+//       return res.status(403).json({ message: "Invalid CSRF token" });
+//     }
+
+//     const { newPassword } = req.body;
+//     const user = await User.findById(req.session.userId);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found." });
+//     }
+
+//     // ✅ Hash and save new password
+//     user.password = bcrypt.hashSync(newPassword, 10);
+//     await user.save();
+
+//     res.status(200).json({ message: "Password reset successfully." });
+//   } catch (error) {
+//     console.error("❌ Password Reset Error:", error);
+//     res.status(500).json({ message: "Internal server error." });
+//   }
+// };
 
 const OTP_EXPIRY_TIME = 10 * 60 * 1000; // 10 minutes
 
@@ -246,27 +318,19 @@ module.exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const hashedEmail = hashEmail(email);
-
     // Generate OTP and expiry
     const otp = Math.floor(100000 + Math.random() * 900000);
     const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-
-    console.log("🔹 Generated OTP:", otp);
-
     // ✅ Use `findOneAndUpdate` with `{ upsert: false }`
     const user = await User.findOneAndUpdate(
       { hashedEmail },
       { $set: { resetOTP: otp, otpExpiry: expiry } },
       { new: true } // Return updated document
     );
-
     if (!user) {
       console.log("❌ User not found for email:", email);
       return res.status(404).json({ message: "User not found" });
     }
-
-    console.log("✅ Updated User:", user);
-
     await sendOTPEmail(decrypt(user.email), otp);
     res.status(200).json({ message: "OTP sent successfully!" });
   } catch (error) {
@@ -392,9 +456,105 @@ module.exports.verifyOTP = async (req, res) => {
 //     res.status(500).send({ message: "Error logging in", error: error.message });
 //   }
 // };
+// module.exports.loginUser = async (req, res) => {
+//   try {
+//     const hashedEmail = hashEmail(req.body.email);
+//     const user = await User.findOne({ hashedEmail });
+
+//     if (!user) {
+//       return res.status(404).send({ message: "Email does not exist" });
+//     }
+
+//     const isPasswordCorrect = bcrypt.compareSync(
+//       req.body.password,
+//       user.password
+//     );
+//     if (!isPasswordCorrect) {
+//       return res.status(401).send({ message: "Incorrect email or password" });
+//     }
+
+//     // ✅ Store user ID in session
+//     req.session.userId = user._id;
+
+//     // ✅ Ensure session is saved before responding
+//     req.session.save((err) => {
+//       if (err) {
+//         console.error("Session save error:", err);
+//         return res.status(500).send({ message: "Session error" });
+//       }
+//       res.status(200).send({
+//         message: "User logged in successfully",
+//         access: auth.createAccessToken(user),
+//       });
+//     });
+//     // ✅ Log successful login
+//     logger.info(`User ${user.email} logged in at ${new Date().toISOString()}`);
+//   } catch (error) {
+//     console.error("❌ Login Error:", error);
+//     res.status(500).send({ message: "Error logging in", error: error.message });
+//   }
+// };
+
+//not eorking
+// function hashEmail(email) {
+//   return crypto.createHash("sha256").update(email).digest("hex");
+// }
+// module.exports.loginUser = async (req, res) => {
+//   try {
+//     const hashedEmail = hashEmail(req.body.email); // Hash input email
+//     console.log("🔍 Hashed Email for Login:", hashedEmail); // Debugging
+
+//     const user = await User.findOne({ hashedEmail });
+
+//     if (!user) {
+//       console.log("❌ User not found in DB:", hashedEmail);
+//       return res.status(404).send({ message: "Email does not exist" });
+//     }
+
+//     const isPasswordCorrect = bcrypt.compareSync(
+//       req.body.password,
+//       user.password
+//     );
+//     if (!isPasswordCorrect) {
+//       return res.status(401).send({ message: "Incorrect email or password" });
+//     }
+
+//     req.session.regenerate((err) => {
+//       if (err) {
+//         console.error("❌ Session regeneration error:", err);
+//         return res.status(500).send({ message: "Session error" });
+//       }
+
+//       req.session.userId = user._id;
+//       req.session.lastActivity = Date.now();
+
+//       req.session.save((err) => {
+//         if (err) {
+//           console.error("❌ Session save error:", err);
+//           return res.status(500).send({ message: "Session error" });
+//         }
+
+//         console.log("✅ New session created:", req.session.id);
+//         res.status(200).send({
+//           message: "User logged in successfully",
+//           access: auth.createAccessToken(user),
+//         });
+//       });
+//     });
+
+//     logger.info(`User ${user.email} logged in at ${new Date().toISOString()}`);
+//   } catch (error) {
+//     console.error("❌ Login Error:", error);
+//     res.status(500).send({ message: "Error logging in", error: error.message });
+//   }
+// };
+
 module.exports.loginUser = async (req, res) => {
   try {
+    console.log("🟢 Input Email:", req.body.email);
+
     const hashedEmail = hashEmail(req.body.email);
+
     const user = await User.findOne({ hashedEmail });
 
     if (!user) {
@@ -409,21 +569,26 @@ module.exports.loginUser = async (req, res) => {
       return res.status(401).send({ message: "Incorrect email or password" });
     }
 
-    // ✅ Store user ID in session
-    req.session.userId = user._id;
-
-    // ✅ Ensure session is saved before responding
-    req.session.save((err) => {
+    req.session.regenerate((err) => {
       if (err) {
-        console.error("Session save error:", err);
+        console.error("❌ Session regeneration error:", err);
         return res.status(500).send({ message: "Session error" });
       }
-      res.status(200).send({
-        message: "User logged in successfully",
-        access: auth.createAccessToken(user),
+      req.session.userId = user._id;
+      req.session.lastActivity = Date.now();
+      req.session.save((err) => {
+        if (err) {
+          console.error("❌ Session save error:", err);
+          return res.status(500).send({ message: "Session error" });
+        }
+        // console.log("✅ New session created:", req.session.id);
+        res.status(200).send({
+          message: "User logged in successfully",
+          access: auth.createAccessToken(user),
+        });
       });
     });
-    // ✅ Log successful login
+
     logger.info(`User ${user.email} logged in at ${new Date().toISOString()}`);
   } catch (error) {
     console.error("❌ Login Error:", error);

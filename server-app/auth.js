@@ -40,12 +40,60 @@ module.exports.verify = (req, res, next) => {
 };
 
 // ✅ [MODIFIED] Secure Logout (Clears Token)
+// module.exports.logoutUser = (req, res) => {
+//   res.clearCookie("token"); // ✅ Remove JWT on logout
+//   req.session.destroy(() => {
+//     res.status(200).send({ message: "Logged out successfully" });
+//   });
+// };
+
+// module.exports.logoutUser = (req, res) => {
+//   if (!req.session) {
+//     return res.status(400).json({ message: "No active session found." });
+//   }
+
+//   req.session.destroy((err) => {
+//     if (err) {
+//       console.error("❌ Error destroying session:", err);
+//       return res.status(500).json({ message: "Logout failed." });
+//     }
+
+//     // ✅ Ensure session is removed from MongoDB
+//     res.clearCookie("connect.sid", {
+//       path: "/",
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//       sameSite: "strict",
+//     });
+
+//     console.log("✅ User logged out, session destroyed.");
+//     res.status(200).json({ message: "Logged out successfully." });
+//   });
+// };
+
 module.exports.logoutUser = (req, res) => {
-  res.clearCookie("token"); // ✅ Remove JWT on logout
-  req.session.destroy(() => {
-    res.status(200).send({ message: "Logged out successfully" });
+  if (!req.session) {
+    return res.status(400).json({ message: "No active session found." });
+  }
+
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("❌ Error destroying session:", err);
+      return res.status(500).json({ message: "Logout failed." });
+    }
+
+    res.clearCookie("connect.sid", {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    console.log("✅ User logged out, session destroyed.");
+    res.status(200).json({ message: "Logged out successfully." });
   });
 };
+
 
 //[SECTION] Verify Admin
 module.exports.verifyAdmin = (req, res, next) => {

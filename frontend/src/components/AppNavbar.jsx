@@ -16,7 +16,7 @@ export default function AppNavbar() {
   return (
     <Navbar expand="lg" className="bg-light">
       <Container className="ms-0">
-        <Navbar.Brand href="/"> Course Booking</Navbar.Brand>
+        <Navbar.Brand href="/"> TechShala</Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">

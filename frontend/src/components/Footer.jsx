@@ -12,7 +12,7 @@ export default function Footer() {
       <Container>
         <Row>
           <Col md={4}>
-            <h4 className="mb-3">Course Booking</h4>
+            <h4 className="mb-3">TechShala</h4>
             <p>
               We offer a wide range of technical courses in Web Development,
               Cyber Security, 3D Animation & VFX, AI, and Data Science,

@@ -212,7 +212,6 @@ export default function Register() {
       /(?=.*[\W_])/, // Special character
       /.{8,}/, // At least 8 characters
     ];
-
     let score = strength.reduce(
       (acc, regex) => (regex.test(password) ? acc + 20 : acc),
       0
@@ -220,7 +219,6 @@ export default function Register() {
     setPasswordStrength(score);
     return score === 100;
   };
-
   // Handle password input changes
   const handlePasswordChange = (e) => {
     const newPassword = e.target.value;
@@ -234,7 +232,6 @@ export default function Register() {
       setPasswordError("");
     }
   };
-
   // Show error only after user leaves the password field
   const handlePasswordBlur = () => {
     setShowPasswordError(true);

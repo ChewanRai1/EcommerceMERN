@@ -37,46 +37,47 @@ TechShala is a full-stack web application built using the **MERN (MongoDB, Expre
 ```sh
 git clone https://github.com/ChewanRai1/TechShala_ST6005CEM_Security.git
 cd TechShala_ST6005CEM_Security
-### **2. Install Dependencies
-Backend
-sh
-Copy
-Edit
+```
+
+### **2. Install Dependencies**
+#### **Backend**
+```sh
 cd server-app
 npm install
-Frontend
-sh
-Copy
-Edit
+```
+
+#### **Frontend**
+```sh
 cd frontend
 npm install
-### **3. Set Up Environment Variables
-Create a .env file in the server-app directory and add the following:
+```
 
-env
-Copy
-Edit
+### **3. Set Up Environment Variables**
+Create a `.env` file in the **server-app** directory and add the following:
+```env
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_key
 CORS_ORIGIN=your_frontend_url
-### **4. Run the Application
-Start Backend
-sh
-Copy
-Edit
+EMAIL_USER=
+EMAIL_PASS=
+```
+
+### **4. Run the Application**
+#### **Start Backend**
+```sh
 cd server-app
 npm start
-Start Frontend
-sh
-Copy
-Edit
+```
+
+#### **Start Frontend**
+```sh
 cd frontend
 npm start
-📂 Project Structure
-lua
-Copy
-Edit
+```
+
+## 📂 Project Structure
+```
 TechShala_ST6005CEM_Security/
 │── frontend/
 │   ├── src/
@@ -102,25 +103,26 @@ TechShala_ST6005CEM_Security/
 │── README.md
 │── package.json
 │── .gitignore
-🛡 Security Features
-JWT Authentication for secure user sessions
-XSRF Protection to prevent cross-site request forgery
-Input Sanitization to prevent injection attacks
-Password Hashing using bcrypt
-📌 Future Enhancements
-Implementing WebSockets for real-time interactions
-Adding AI-powered recommendations for tech courses
-Enhancing the UI with animations and micro-interactions
-Integrating payment gateways for seamless booking
-🤝 Contributing
-Contributions are welcome! Feel free to submit a pull request or open an issue for discussion.
+```
 
-📜 License
-This project is licensed under the MIT License.
+## 🛡 Security Features
+- **HTTPS Enforcement** for encrypted communication
+- **JWT Authentication** for secure user sessions
+- **CSRF Protection** to prevent cross-site request forgery
+- **RBAC (Role-Based Access Control)** to restrict unauthorized actions
+- **Input Sanitization** to prevent injection attacks
+- **Password Security Measures**:
+  - Enforced password length and complexity
+  - Password expiration and reuse prevention
+  - Real-time strength assessment during registration
+- **Brute Force Protection** to mitigate unauthorized access attempts
+- **Session Management** for user activity tracking
+- **Encryption** for sensitive data storage
+- **Audit Trail** to log and monitor system activities
 
-📞 Contact
+
+## 📞 Contact
 For any queries, feel free to reach out at:
-
-Email: kojuparibesh1234@gmail.com
-GitHub: ChewanRai1
-LinkedIn: Paribesh Koju
+- **Email:** rai.chewan123@gmail.com
+- **GitHub:** [ChewanRai1](https://github.com/ChewanRai1)
+- **LinkedIn:** [Chewan Rai]((https://www.linkedin.com/in/chewan-rai140/))

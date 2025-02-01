@@ -37,7 +37,7 @@ TechShala is a full-stack web application built using the **MERN (MongoDB, Expre
 ```sh
 git clone https://github.com/ChewanRai1/TechShala_ST6005CEM_Security.git
 cd TechShala_ST6005CEM_Security
-2. Install Dependencies
+### **2. Install Dependencies
 Backend
 sh
 Copy
@@ -50,7 +50,7 @@ Copy
 Edit
 cd frontend
 npm install
-3. Set Up Environment Variables
+### **3. Set Up Environment Variables
 Create a .env file in the server-app directory and add the following:
 
 env
@@ -60,7 +60,7 @@ PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_key
 CORS_ORIGIN=your_frontend_url
-4. Run the Application
+### **4. Run the Application
 Start Backend
 sh
 Copy

@@ -106,6 +106,11 @@
 // module.exports = { app, mongoose };
 
 // [SECTION] Dependencies and Modules
+
+// const http = require("http");
+const fs = require("fs");
+const https = require("https");
+
 const express = require("express");
 
 const mongoose = require("mongoose");
@@ -127,6 +132,12 @@ const captchaRoute = require("./routes/captchaRoute");
 // [SECTION] Server Setup
 const app = express();
 
+// Load SSL Certificates
+const options = {
+  key: fs.readFileSync("./ssl/server.key"),
+  cert: fs.readFileSync("./ssl/server.cert"),
+};
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -136,7 +147,7 @@ app.use(cookieParser());
 const csrfProtection = csrf({ cookie: true });
 
 const corsOptions = {
-  origin: "http://localhost:5173", // Allow frontend URL
+  origin: "https://localhost:5173", // Allow frontend URL
   credentials: true, // Allow cookies & headers
   methods: "GET, POST, PUT, DELETE", // Allow specific HTTP methods
   allowedHeaders: "Content-Type, Authorization, X-XSRF-TOKEN", // Allow these headers
@@ -161,6 +172,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production", // Set to true in production
       // secure: false,
+      // secure: true, // only in https
       httpOnly: true, // Helps prevent XSS attacks
       sameSite: "strict", // ✅ Protects against CSRF attacks
       maxAge: 1000 * 60 * 15, // Session expiration set to 15 minutes
@@ -254,11 +266,44 @@ app.get("/logout", (req, res) => {
   });
 });
 
+// Create HTTPS Server
+https.createServer(options, app).listen(4000, () => {
+  console.log("✅ HTTPS Server running on port 4000");
+});
+
+// Redirect HTTP to HTTPS (Optional)
+
+// http
+//   .createServer((req, res) => {
+//     res.writeHead(301, {
+//       Location: "https://" + req.headers["host"] + req.url,
+//     });
+//     res.end();
+//   })
+//   .listen(80, () => {
+//     console.log("🚀 HTTP Server running on port 80 (Redirecting to HTTPS)");
+//   });
+
 // [SECTION] Server Gateway Response
-if (require.main === module) {
-  app.listen(process.env.PORT || 3000, () => {
-    console.log(`API is now online on port ${process.env.PORT || 3000}`);
-  });
-}
+
+//for HTTP
+// if (require.main === module) {
+//   app.listen(process.env.PORT || 3000, () => {
+//     console.log(`API is now online on port ${process.env.PORT || 3000}`);
+//   });
+// }
+
+// only for depolyment(HTTPS)
+
+// https.createServer(options, app).listen(process.env.PORT || 3000, () => {
+//   console.log(`🚀 Server is running on HTTPS at port ${process.env.PORT || 3000}`);
+// });
+
+// app.use((req, res, next) => {
+//   if (!req.secure) {
+//     return res.redirect(`https://${req.headers.host}${req.url}`);
+//   }
+//   next();
+// });
 
 module.exports = { app, mongoose };
